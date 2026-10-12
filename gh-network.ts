@@ -1,7 +1,4 @@
-// gh network: find the forks that carry on a repo's work.
-// It walks the whole fork network (forks of forks too), compares every fork with the
-// repo it was forked from on every recent branch, then ranks forks by adoption and
-// recent work of their own.
+// Find active forks, including forks of forks.
 import { $ } from "bun";
 import { z } from "zod";
 
@@ -16,10 +13,10 @@ const DAY = 86_400_000;
 
 const USAGE = `usage: gh network <owner/repo> [--json]
 
-Ranks the forks in a repo's fork network by who is still doing the work.
-Any repo in the network works as input; the walk starts from the original.`;
+Finds active forks of a repo, including forks of forks.
+Pass any repo in the network; the search starts at the original.`;
 
-// Only the fields we read from GitHub's responses.
+// Fields used from GitHub's responses.
 const RestRepo = z.object({
   full_name: z.string(),
   name: z.string(),
@@ -35,7 +32,7 @@ const RestRepo = z.object({
 });
 const RepoWithSource = RestRepo.extend({ source: RestRepo.optional() });
 const Compare = z.object({ ahead_by: z.number(), behind_by: z.number() });
-// Branch heads that point at something other than a commit come back without oid/committedDate.
+// Non-commit branch heads have no oid or committedDate.
 const Ref = z
   .object({ name: z.string(), target: z.object({ oid: z.string(), committedDate: z.string() }).partial().nullable() })
   .nullable();
@@ -93,7 +90,7 @@ if (!token) {
   try {
     token = (await $`gh auth token`.quiet().text()).trim();
   } catch {
-    console.error("gh network needs a GitHub token. Run `gh auth login` or set GH_TOKEN.");
+    console.error("Need a GitHub token. Run `gh auth login` or set GH_TOKEN.");
     process.exit(1);
   }
 }
@@ -102,7 +99,7 @@ const progress = (msg: string) => process.stderr.isTTY && process.stderr.write(`
 let restCalls = 0;
 let graphqlCalls = 0;
 
-// Returns the parsed JSON body, or null for any non-rate-limit failure (404s, blocked repos, etc).
+// Return JSON on success, or null for errors other than rate limits.
 async function github(path: string, query?: string): Promise<unknown> {
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(`https://api.github.com/${path}`, {
@@ -173,10 +170,10 @@ function fromRest(r: z.infer<typeof RestRepo>, parent: string | undefined, depth
   };
 }
 
-// 1. Find the original repo and walk every fork under it, level by level.
+// Find the original repo and walk its forks, level by level.
 const start = RepoWithSource.safeParse(await github(`repos/${target}`));
 if (!start.success) {
-  console.error(`Can't find ${target} (or it's private and your token can't see it).`);
+  console.error(`Can't find ${target}. It may be private or your token may lack access.`);
   process.exit(1);
 }
 const root = fromRest(start.data.source ?? start.data, undefined, 0);
@@ -184,7 +181,7 @@ const forks: Repo[] = [];
 let level = [root];
 while (level.length) {
   const next: Repo[] = [];
-  // forks_count counts the whole subtree, so it's an upper bound on pages of direct forks.
+  // forks_count includes descendants, so it gives an upper bound on direct-fork pages.
   const pages = level.flatMap((p) => Array.from({ length: Math.ceil(p.directForks / 100) }, (_, i) => [p, i + 1] as const));
   await mapLimit(pages, async ([parent, page]) => {
     const batch = z.array(RestRepo).safeParse(await github(`repos/${parent.name}/forks?per_page=100&page=${page}&sort=newest`));
@@ -202,14 +199,13 @@ for (const f of forks) {
   for (let p = byName.get(f.parent!); p; p = p.parent ? byName.get(p.parent) : undefined) p.descendants++;
 }
 
-// 2. Only forks pushed to after they were created can hold work of their own.
-//    Big networks get capped: starred forks first, then the most recently pushed.
+// Keep forks pushed to after creation. Compare starred forks first, then recent ones.
 const touched = forks
   .filter((f) => Date.parse(f.pushedAt) - Date.parse(f.createdAt) > 60_000)
   .sort((a, b) => b.stars - a.stars || Date.parse(b.pushedAt) - Date.parse(a.pushedAt));
 const candidates = touched.slice(0, MAX_COMPARED_FORKS);
 
-// 3. Fetch branch heads, latest release and open issue counts in GraphQL batches.
+// Fetch branch heads, latest release, and open issue counts in batches.
 const detailed = [...new Set([root, ...candidates, ...candidates.map((c) => byName.get(c.parent!)!)])];
 const DETAILS = `
   hasIssuesEnabled
@@ -248,9 +244,8 @@ await mapLimit(batches, async (batch) => {
   progress(`reading branches: ${detailsDone}/${detailed.length}`);
 });
 
-// 4. Compare each candidate with its parent: the default branch, plus any recent
-//    branch whose head the parent doesn't have. If a branch is ahead, its head commit
-//    is the fork's own, so the head's date is the fork's latest own commit.
+// Compare each fork's default branch and recent branches missing from its parent.
+// A branch ahead of its parent has the fork's own commits.
 const branchRef = (r: Repo, branch: string) =>
   `${r.owner}:${r.repo}:${encodeURIComponent(branch).replaceAll("%2F", "/")}`;
 async function compare(base: Repo, head: Repo, branch: string) {
@@ -292,9 +287,8 @@ await mapLimit(candidates, async (f) => {
 });
 progress("");
 
-// 5. Score forks that have work of their own. Stars weigh most because they show
-//    people actually use the fork; recent own commits, releases and open issues show
-//    someone is maintaining it.
+// Rank forks with their own work. Stars show use; commits, releases, and issues
+// help show whether someone is maintaining the fork.
 const ranked = candidates.filter((f) => f.ownBranches.length > 0);
 for (const f of ranked) {
   const days = daysSince(f.lastOwnCommit!);
@@ -309,10 +303,8 @@ for (const f of ranked) {
 }
 ranked.sort((a, b) => b.score - a.score);
 
-// 6. Look outside the fork network. GitHub only links forks made with the Fork button,
-//    so a project that re-uploaded the code or moved to a new repo is invisible above.
-//    Two cheap signals catch many of these: the original's README or description
-//    pointing somewhere, and same-named repos that contain the original's first commit.
+// Find successors outside the network through README or description links, and
+// same-named repos that share the original's first commit.
 const SUCCESSOR_WORDS =
   /instead|supersed|recommend|consider|alternative|fork|maintain|successor|moved|migrat|replac|continu|new home/i;
 const NOT_OWNERS: Record<string, true> = { orgs: true, sponsors: true, features: true, settings: true, topics: true, apps: true, marketplace: true };
@@ -325,7 +317,7 @@ for (const text of [rootDescription, ...readmeLines]) {
   if (!SUCCESSOR_WORDS.test(text)) continue;
   for (const [, owner, repo] of text.matchAll(/github\.com\/([\w.-]+)(?:\/([\w.-]+))?/g)) {
     if (NOT_OWNERS[owner.toLowerCase()]) continue;
-    // A bare org link ("active fork: github.com/Nheko-Reborn") usually means the same repo name there.
+    // A bare org link usually points to a repo with the same name.
     const name = `${owner}/${repo?.replace(/(\.git)?\.*$/, "") || root.repo}`;
     if (name.toLowerCase() !== root.name.toLowerCase() && !pointerQuotes.has(name)) {
       pointerQuotes.set(name, text.trim().replace(/\s+/g, " ").slice(0, 140));
@@ -359,7 +351,7 @@ type Related = { name: string; stars: number; pushedAt: string; archived: boolea
 const related = (
   await mapLimit([...new Set([...pointerQuotes.keys(), ...lookalikes])], async (name): Promise<Related | undefined> => {
     const quote = pointerQuotes.get(name);
-    // Renamed repos redirect, so look the name up before deciding it's outside the network.
+    // Resolve renames before checking whether a repo is outside the network.
     const repo = inNetwork.has(name.toLowerCase()) ? undefined : RepoWithSource.safeParse(await github(`repos/${name}`)).data;
     const known = inNetwork.get((repo?.full_name ?? name).toLowerCase());
     if (known) {
@@ -395,7 +387,7 @@ const why = (f: Repo) =>
     .filter(Boolean)
     .join(", ");
 const rootState = `${root.name} ${root.archived ? "is archived" : rootQuiet ? "looks inactive" : "is still active"} (last commit ${age(rootLastCommit)}).`;
-// Same set as `ranked`, so this is defined whenever `best` is.
+// `newest` comes from `ranked`, so it exists whenever `best` does.
 const newest = ranked.reduce((a, f) => (f.lastOwnCommit! > a.lastOwnCommit! ? f : a), ranked[0]);
 const namedNote =
   liveNamed &&
@@ -456,10 +448,10 @@ if (asJson) {
   }
   if (ranked.length) {
     console.log(`\n${line(header)}\n${rows.map(line).join("\n")}`);
-    console.log("\nahead/behind and branches are measured against the repo each fork came from.");
+    console.log("\nAhead/behind and branch counts compare each fork with its parent.");
   }
   if (related.length) {
-    console.log(`\nNamed by ${root.name} or sharing its history:`);
+    console.log("\nRelated repos:");
     for (const r of related) {
       console.log(`  ${r.name}  ${r.stars}★  pushed ${age(r.pushedAt)}${r.archived ? " (archived)" : ""}  ${r.where}`);
       if (r.quote) console.log(`      "${r.quote}"`);

@@ -1,5 +1,5 @@
-// Runs gh network on every repo in cases.json and checks the expected answers.
-// Usage: bun run eval
+// Check gh network's results against cases.json.
+// Run with: bun run eval
 import { $ } from "bun";
 import { z } from "zod";
 
@@ -28,7 +28,7 @@ for (const c of cases) {
     const want = e.repo.toLowerCase();
     const rank = ranked.indexOf(want);
     const ok = e.as === "top" ? rank === 0 : related.includes(want);
-    const found = !out.success ? "gh network failed" : rank >= 0 ? `ranked #${rank + 1}` : related.includes(want) ? "related" : "not found";
+    const found = !out.success ? "gh network failed" : rank >= 0 ? `ranked #${rank + 1}` : related.includes(want) ? "listed separately" : "not found";
     if (!ok && !c.knownMiss) failures++;
     console.log(`${ok ? "pass" : c.knownMiss ? "miss (known)" : "FAIL"}  ${c.repo} -> ${e.repo} (want ${e.as}, got ${found})`);
   }
