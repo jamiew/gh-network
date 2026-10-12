@@ -1,0 +1,5 @@
+#!/bin/sh
+# gh extension entry point; the work happens in gh-network.ts (needs Bun).
+dir="$(dirname "$(realpath "$0")")"
+[ -d "$dir/node_modules" ] || bun install --cwd "$dir" --production --silent >&2
+exec bun "$dir/gh-network.ts" "$@"
