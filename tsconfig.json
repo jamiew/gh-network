@@ -9,5 +9,5 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["gh-network.ts"]
+  "include": ["gh-network.ts", "eval/run.ts"]
 }

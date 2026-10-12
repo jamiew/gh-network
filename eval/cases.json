@@ -1,0 +1,106 @@
+{
+  "checked": "2026-10-12",
+  "how": "`top` means gh network must rank the repo #1. `related` means it must list the repo under 'Named by ... or sharing its history'. Baselines were checked by hand on the checked date: githubForksPage is the /forks page with default settings, sorted by stars; forkFinder is forkfinder.getinfotoyou.com.",
+  "cases": [
+    {
+      "repo": "haydenbbickerton/vue-animate",
+      "expect": [{ "repo": "asika32764/vue-animate", "as": "top" }],
+      "source": "Description names the active fork (it was renamed from vue2-animate).",
+      "baselines": { "githubForksPage": "first", "forkFinder": "first" }
+    },
+    {
+      "repo": "arjanadriaanse/pascal-language-server",
+      "expect": [
+        { "repo": "castle-engine/pascal-language-server", "as": "top" },
+        { "repo": "genericptr/pascal-language-server", "as": "related" }
+      ],
+      "source": "Description names both. castle-engine is a fork of a fork; genericptr is a separate repo.",
+      "baselines": { "githubForksPage": "miss", "forkFinder": "miss" }
+    },
+    {
+      "repo": "dhis2/dhis2-fhir-adapter",
+      "expect": [{ "repo": "ITINordic/dhis2-fhir-adapter", "as": "top" }],
+      "source": "Description names the fork.",
+      "baselines": { "githubForksPage": "miss", "forkFinder": "first" }
+    },
+    {
+      "repo": "ItokawaK/Alt_nCov2019_primers",
+      "expect": [{ "repo": "nasasaki/Alt_nCov2019_primers", "as": "top" }],
+      "source": "Description names the fork. It has 0 stars, so it's a hard case for star-based ranking.",
+      "baselines": { "githubForksPage": "miss", "forkFinder": "first" }
+    },
+    {
+      "repo": "mkalam-alami/inventory-tweaks",
+      "expect": [{ "repo": "Inventory-Tweaks/inventory-tweaks", "as": "top" }],
+      "source": "Description says \"Kobata's fork\"; Kobata/inventory-tweaks now redirects here.",
+      "baselines": { "githubForksPage": "miss", "forkFinder": "top3" }
+    },
+    {
+      "repo": "Dirbaio/gominer",
+      "expect": [{ "repo": "decred/gominer", "as": "top" }],
+      "source": "Description names the fork.",
+      "baselines": { "githubForksPage": "miss", "forkFinder": "first" }
+    },
+    {
+      "repo": "nytimes/pourover",
+      "expect": [{ "repo": "hhsnopek/pourover", "as": "top" }],
+      "source": "Description names the fork.",
+      "baselines": { "githubForksPage": "miss", "forkFinder": "top3" }
+    },
+    {
+      "repo": "darkalfx/requestrr",
+      "expect": [{ "repo": "thomst08/requestrr", "as": "top" }],
+      "source": "The fork everyone uses (489 stars, regular releases). The question that started this project.",
+      "baselines": { "githubForksPage": "first", "forkFinder": "first" }
+    },
+    {
+      "repo": "hammem/monarchmoney",
+      "expect": [{ "repo": "bradleyseanf/monarchmoneycommunity", "as": "top" }],
+      "source": "Community fork with 150+ stars and its own releases.",
+      "baselines": { "githubForksPage": "first", "forkFinder": "first" }
+    },
+    {
+      "repo": "xou816/spot",
+      "expect": [{ "repo": "Diegovsky/riff", "as": "related" }],
+      "source": "README says to use riff instead. riff is a separate repo, not a GitHub fork.",
+      "baselines": { "githubForksPage": "miss", "forkFinder": "miss" }
+    },
+    {
+      "repo": "mujx/nheko",
+      "expect": [{ "repo": "Nheko-Reborn/nheko", "as": "related" }],
+      "source": "Description links the Nheko-Reborn org. Separate repo.",
+      "baselines": { "githubForksPage": "miss", "forkFinder": "miss" }
+    },
+    {
+      "repo": "sct/overseerr",
+      "expect": [{ "repo": "seerr-team/seerr", "as": "related" }],
+      "source": "README says Overseerr is superseded by Seerr. Separate repo.",
+      "baselines": { "githubForksPage": "miss", "forkFinder": "miss" }
+    },
+    {
+      "repo": "eczarny/spectacle",
+      "expect": [{ "repo": "rxhanson/Rectangle", "as": "related" }],
+      "source": "No real successor. README recommends Rectangle, a separate rewrite.",
+      "baselines": { "githubForksPage": "miss", "forkFinder": "miss" }
+    },
+    {
+      "repo": "atom/atom",
+      "expect": [{ "repo": "pulsar-edit/pulsar", "as": "related" }],
+      "source": "Pulsar is the well-known successor, but it's a separate repo with a new name and Atom never links to it.",
+      "knownMiss": true,
+      "baselines": { "githubForksPage": "miss", "forkFinder": "miss" }
+    },
+    {
+      "repo": "alii/open-opal",
+      "expect": [{ "repo": "jamiew/open-opal", "as": "top" }],
+      "source": "Jamie's fork, the most active one. Not in the README table.",
+      "baselines": {}
+    },
+    {
+      "repo": "charlietran/scapectl",
+      "expect": [{ "repo": "jamiew/scapectl", "as": "top" }],
+      "source": "Jamie's fork; its work is on side branches. Not in the README table.",
+      "baselines": {}
+    }
+  ]
+}

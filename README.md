@@ -16,6 +16,7 @@ gh network darkalfx/requestrr
 ## How it compares
 
 I tested it on 14 repos where we already know which fork took over.
+They're listed in [eval/cases.json](eval/cases.json).
 
 | | GitHub's forks page | [Fork Finder](https://forkfinder.getinfotoyou.com/) | gh network |
 |---|---|---|---|
@@ -39,3 +40,8 @@ It looks for same-named repos that share the original's history.
 
 Add `--json` to get the full results as JSON.
 Big networks are slow: Atom's 17,000 forks take about 2 minutes.
+
+## Testing
+
+Run `bun run eval` to check every repo in `eval/cases.json` again.
+Add a repo there when you find a new good example.
