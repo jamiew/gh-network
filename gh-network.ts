@@ -261,9 +261,13 @@ await mapLimit(candidates, async (f) => {
   f.ahead = main?.ahead;
   f.behind = main?.behind;
   const parentOids = new Set([...parent.heads.values()].map((h) => h.oid));
+  // A failed compare usually means "no common ancestor": the fork rewrote its history,
+  // so a head the parent doesn't have and that's newer than the fork is all new work.
+  const isOwn = (c: { ahead: number } | undefined, head: Head) =>
+    c ? c.ahead > 0 : !parentOids.has(head.oid) && Date.parse(head.date) > Date.parse(f.createdAt);
   const ownDates: string[] = [];
   const mainHead = f.heads.get(f.defaultBranch);
-  if (main?.ahead && mainHead) {
+  if (mainHead && isOwn(main, mainHead)) {
     f.ownBranches.push(f.defaultBranch);
     ownDates.push(mainHead.date);
   }
@@ -277,7 +281,7 @@ await mapLimit(candidates, async (f) => {
     );
   f.branchesCapped = sideBranches.length > MAX_BRANCHES_PER_FORK;
   for (const [branch, head] of sideBranches.slice(0, MAX_BRANCHES_PER_FORK)) {
-    if ((await compare(parent, f, branch))?.ahead) {
+    if (isOwn(await compare(parent, f, branch), head)) {
       f.ownBranches.push(branch);
       ownDates.push(head.date);
     }

@@ -7,7 +7,7 @@ const Cases = z.object({
   cases: z.array(
     z.object({
       repo: z.string(),
-      expect: z.array(z.object({ repo: z.string(), as: z.enum(["top", "related"]) })),
+      expect: z.array(z.object({ repo: z.string(), as: z.enum(["top", "ranked", "related"]) })),
       knownMiss: z.boolean().optional(),
     }),
   ),
@@ -27,7 +27,7 @@ for (const c of cases) {
   for (const e of c.expect) {
     const want = e.repo.toLowerCase();
     const rank = ranked.indexOf(want);
-    const ok = e.as === "top" ? rank === 0 : related.includes(want);
+    const ok = e.as === "top" ? rank === 0 : e.as === "ranked" ? rank >= 0 : related.includes(want);
     const found = !out.success ? "gh network failed" : rank >= 0 ? `ranked #${rank + 1}` : related.includes(want) ? "listed separately" : "not found";
     if (!ok && !c.knownMiss) failures++;
     console.log(`${ok ? "pass" : c.knownMiss ? "miss (known)" : "FAIL"}  ${c.repo} -> ${e.repo} (want ${e.as}, got ${found})`);

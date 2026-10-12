@@ -1,6 +1,6 @@
 {
   "checked": "2026-10-12",
-  "how": "`top` means gh network ranks the repo first. `related` means it lists the repo under Related repos. I checked the GitHub forks page (default settings, sorted by stars) and Fork Finder by hand on the date above.",
+  "how": "`top` means gh network ranks the repo first. `ranked` means it appears anywhere in the ranking. `related` means it lists the repo under Related repos. I checked the GitHub forks page (default settings, sorted by stars) and Fork Finder by hand on the date above.",
   "cases": [
     {
       "repo": "haydenbbickerton/vue-animate",
@@ -55,8 +55,11 @@
     },
     {
       "repo": "hammem/monarchmoney",
-      "expect": [{ "repo": "bradleyseanf/monarchmoneycommunity", "as": "top" }],
-      "source": "Community fork with 150+ stars and releases.",
+      "expect": [
+        { "repo": "bradleyseanf/monarchmoneycommunity", "as": "top" },
+        { "repo": "keithah/monarchmoney-enhanced", "as": "ranked" }
+      ],
+      "source": "Community fork with 150+ stars and releases. keithah rewrote its history, so GitHub can't compare it with the original, but it still has work of its own.",
       "baselines": { "githubForksPage": "first", "forkFinder": "first" }
     },
     {
