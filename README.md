@@ -15,6 +15,25 @@ work on recent branches. It ranks them by stars, forks, recent commits, releases
 and open issues. It also checks the original README and description for links to
 successors, and looks for same-named repos with the original's first commit.
 
+## Example: monarchmoney
+
+[hammem/monarchmoney](https://github.com/hammem/monarchmoney) has 153 forks.
+`gh network` picks [bradleyseanf/monarchmoneycommunity](https://github.com/bradleyseanf/monarchmoneycommunity),
+which kept going after the original went quiet. More in the
+[blog post](https://jamiedubs.com/blog/gh-network/).
+
+Each fork's life, from creation to its last commit of its own:
+
+[![Each monarchmoney fork drawn as a line from creation to its last commit of its own](https://jamiedubs.com/images/blog-posts/gh-network/monarchmoney-forks-lifelines.jpg)](https://jamiedubs.com/images/blog-posts/gh-network/monarchmoney-forks-lifelines.svg)
+
+How much work each fork has of its own versus how recently it had any:
+
+[![Scatter plot of monarchmoney forks by commits of their own and date of their last commit](https://jamiedubs.com/images/blog-posts/gh-network/monarchmoney-forks-scatter.jpg)](https://jamiedubs.com/images/blog-posts/gh-network/monarchmoney-forks-scatter.svg)
+
+For fun, the fork tree with distance from the center as time:
+
+[![The monarchmoney fork tree drawn radially, where distance from the center is time](https://jamiedubs.com/images/blog-posts/gh-network/monarchmoney-forks-radial-time.jpg)](https://jamiedubs.com/images/blog-posts/gh-network/monarchmoney-forks-radial-time.svg)
+
 ## How well does it work?
 
 I tried it on 14 repos with a known successor. It ranked the right fork first
