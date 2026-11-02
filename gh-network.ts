@@ -11,10 +11,10 @@ const TABLE_ROWS = 15;
 const BOT_BRANCH = /^(dependabot|renovate)\//;
 const DAY = 86_400_000;
 
-const USAGE = `usage: gh network <owner/repo> [--json]
+const USAGE = `usage: gh network <repository> [--json]
 
 Finds active forks of a repo, including forks of forks.
-Pass any repo in the network; the search starts at the original.`;
+Pass owner/repo or a full github.com URL. The search starts at the original.`;
 
 // Fields used from GitHub's responses.
 const RestRepo = z.object({
@@ -79,7 +79,17 @@ if (args.includes("-h") || args.includes("--help")) {
   process.exit(0);
 }
 const asJson = args.includes("--json");
-const target = args.find((a) => !a.startsWith("-"));
+const input = args.find((a) => !a.startsWith("-"));
+let target = input;
+if (input?.startsWith("https://") || input?.startsWith("http://")) {
+  try {
+    const url = new URL(input);
+    const parts = url.pathname.split("/").filter(Boolean);
+    target = url.hostname === "github.com" && parts.length === 2 ? parts.join("/") : undefined;
+  } catch {
+    target = undefined;
+  }
+}
 if (!target || !/^[\w.-]+\/[\w.-]+$/.test(target)) {
   console.error(USAGE);
   process.exit(1);

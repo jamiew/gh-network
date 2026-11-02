@@ -5,6 +5,7 @@ Find the fork that kept going.
 ```sh
 gh extension install jamiew/gh-network
 gh network owner/repo
+# or: gh network https://github.com/owner/repo
 ```
 
 You need [GitHub CLI](https://cli.github.com/) and [Bun](https://bun.sh/).
