@@ -9,7 +9,8 @@ gh network owner/repo
 ```
 
 You need [GitHub CLI](https://cli.github.com/) and [Bun](https://bun.sh/).
-Add `--json` for the full results as JSON.
+Repository names are clickable in terminals that support links. Add `--json` for
+the full results as JSON.
 
 `gh network` walks forks and forks of forks, then checks which have their own
 work on recent branches. It ranks them by stars, forks, recent commits, releases,

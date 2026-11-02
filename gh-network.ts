@@ -390,34 +390,39 @@ const liveNamed = related
 const rootLastCommit = [...root.heads.values()].map((h) => h.date).sort().at(-1) ?? root.pushedAt;
 const rootQuiet = root.archived || daysSince(rootLastCommit) > 365;
 const best = ranked[0];
-const why = (f: Repo) =>
-  [
-    `${f.stars}★`,
-    f.descendants && `${f.descendants} fork${f.descendants === 1 ? "" : "s"} of its own`,
-    f.ahead && `${f.ahead} commit${f.ahead === 1 ? "" : "s"} ahead of ${f.parent}`,
-    `last own commit ${age(f.lastOwnCommit)}`,
-    f.release && f.release.date > f.createdAt && `release ${f.release.tag} ${age(f.release.date)}`,
-  ]
-    .filter(Boolean)
-    .join(", ");
-const rootState = `${root.name} ${root.archived ? "is archived" : rootQuiet ? "looks inactive" : "is still active"} (last commit ${age(rootLastCommit)}).`;
-// `newest` comes from `ranked`, so it exists whenever `best` does.
-const newest = ranked.reduce((a, f) => (f.lastOwnCommit! > a.lastOwnCommit! ? f : a), ranked[0]);
-const namedNote =
-  liveNamed &&
-  `Its ${rootDescription.includes(liveNamed.quote!) ? "description" : "README"} points to ${liveNamed.name} (${liveNamed.stars}★, last push ${age(liveNamed.pushedAt)}${liveNamed.where.startsWith("#") ? "" : `, ${liveNamed.where}`}).`;
-const forkNote = !best
-  ? "No fork has commits of its own."
-  : liveNamed && best.name !== liveNamed.name
-    ? `Top fork in the network: ${best.name} (${why(best)}).`
-    : liveNamed
-      ? ""
-      : !rootQuiet
-        ? `Most notable fork: ${best.name} (${why(best)}).`
-        : daysSince(best.lastOwnCommit!) <= 365
-          ? `${best.name} looks like the one carrying it on: ${why(best)}.`
-          : `Its most notable fork, ${best.name}, has gone quiet too (${why(best)}). Newest work of its own: ${newest.name} (${age(newest.lastOwnCommit)}).`;
-const verdict = [rootState, namedNote, forkNote].filter(Boolean).join(" ");
+const supportsLinks = Boolean(process.stdout.isTTY && process.env.TERM !== "dumb");
+const repoName = (name: string, linked = false) =>
+  linked && supportsLinks ? `\x1b]8;;https://github.com/${name}\x1b\\${name}\x1b]8;;\x1b\\` : name;
+const verdict = (linked = false) => {
+  const why = (f: Repo) =>
+    [
+      `${f.stars}★`,
+      f.descendants && `${f.descendants} fork${f.descendants === 1 ? "" : "s"} of its own`,
+      f.ahead && `${f.ahead} commit${f.ahead === 1 ? "" : "s"} ahead of ${repoName(f.parent!, linked)}`,
+      `last own commit ${age(f.lastOwnCommit)}`,
+      f.release && f.release.date > f.createdAt && `release ${f.release.tag} ${age(f.release.date)}`,
+    ]
+      .filter(Boolean)
+      .join(", ");
+  const rootState = `${repoName(root.name, linked)} ${root.archived ? "is archived" : rootQuiet ? "looks inactive" : "is still active"} (last commit ${age(rootLastCommit)}).`;
+  // `newest` comes from `ranked`, so it exists whenever `best` does.
+  const newest = ranked.reduce((a, f) => (f.lastOwnCommit! > a.lastOwnCommit! ? f : a), ranked[0]);
+  const namedNote =
+    liveNamed &&
+    `Its ${rootDescription.includes(liveNamed.quote!) ? "description" : "README"} points to ${repoName(liveNamed.name, linked)} (${liveNamed.stars}★, last push ${age(liveNamed.pushedAt)}${liveNamed.where.startsWith("#") ? "" : `, ${liveNamed.where}`}).`;
+  const forkNote = !best
+    ? "No fork has commits of its own."
+    : liveNamed && best.name !== liveNamed.name
+      ? `Top fork in the network: ${repoName(best.name, linked)} (${why(best)}).`
+      : liveNamed
+        ? ""
+        : !rootQuiet
+          ? `Most notable fork: ${repoName(best.name, linked)} (${why(best)}).`
+          : daysSince(best.lastOwnCommit!) <= 365
+            ? `${repoName(best.name, linked)} looks like the one carrying it on: ${why(best)}.`
+            : `Its most notable fork, ${repoName(best.name, linked)}, has gone quiet too (${why(best)}). Newest work of its own: ${repoName(newest.name, linked)} (${age(newest.lastOwnCommit)}).`;
+  return [rootState, namedNote, forkNote].filter(Boolean).join(" ");
+};
 
 if (asJson) {
   const plain = (r: Repo) => ({ ...r, heads: undefined });
@@ -429,7 +434,7 @@ if (asJson) {
         forksWalked: forks.length,
         forksPushedAfterForking: touched.length,
         forksCompared: candidates.length,
-        verdict,
+        verdict: verdict(),
         ranked: ranked.map(plain),
         related,
       },
@@ -438,39 +443,52 @@ if (asJson) {
     ),
   );
 } else {
-  const rows = ranked.slice(0, TABLE_ROWS).map((f, i) => [
-    String(i + 1),
-    f.name + (f.name.toLowerCase() === target.toLowerCase() ? " *" : "") + (f.archived ? " (archived)" : ""),
-    f.depth > 1 ? f.parent! : "",
-    String(f.stars),
-    String(f.descendants),
-    `${f.ahead ?? "?"}/${f.behind ?? "?"}`,
-    `${f.ownBranches.length}${f.branchesCapped ? "+" : ""}`,
-    age(f.lastOwnCommit),
-    f.release && f.release.date > f.createdAt ? `${f.release.tag} (${age(f.release.date)})` : "",
-    f.issuesEnabled ? String(f.openIssues) : "off",
-  ]);
+  const rows = ranked.slice(0, TABLE_ROWS).map((f, i) => {
+    const cells = [
+      String(i + 1),
+      f.name + (f.name.toLowerCase() === target.toLowerCase() ? " *" : "") + (f.archived ? " (archived)" : ""),
+      f.depth > 1 ? f.parent! : "",
+      String(f.stars),
+      String(f.descendants),
+      `${f.ahead ?? "?"}/${f.behind ?? "?"}`,
+      `${f.ownBranches.length}${f.branchesCapped ? "+" : ""}`,
+      age(f.lastOwnCommit),
+      f.release && f.release.date > f.createdAt ? `${f.release.tag} (${age(f.release.date)})` : "",
+      f.issuesEnabled ? String(f.openIssues) : "off",
+    ];
+    const repos: (string | undefined)[] = [undefined, f.name, f.depth > 1 ? f.parent : undefined];
+    return { cells, repos };
+  });
   const header = ["#", "fork", "forked from", "stars", "forks", "ahead/behind", "branches", "last own commit", "release", "issues"];
-  const widths = header.map((h, c) => Math.max(h.length, ...rows.map((r) => r[c].length)));
-  const line = (cells: string[]) => cells.map((cell, c) => cell.padEnd(widths[c])).join("  ").trimEnd();
+  const widths = header.map((h, c) => Math.max(h.length, ...rows.map((r) => r.cells[c].length)));
+  const line = (cells: string[], repos: (string | undefined)[] = []) =>
+    cells
+      .map((cell, c) => {
+        const padded = cell.padEnd(widths[c]);
+        return repos[c] ? padded.replace(repos[c], repoName(repos[c], true)) : padded;
+      })
+      .join("  ")
+      .trimEnd();
 
   console.log(
-    `${root.name}: ${root.stars}★, ${forks.length} forks in the network, ${touched.length} pushed to after forking, ${ranked.length} with commits of their own.`,
+    `${repoName(root.name, true)}: ${root.stars}★, ${forks.length} forks in the network, ${touched.length} pushed to after forking, ${ranked.length} with commits of their own.`,
   );
   if (touched.length > candidates.length) {
     console.log(`Compared the top ${candidates.length} (starred first, then most recently pushed).`);
   }
   if (ranked.length) {
-    console.log(`\n${line(header)}\n${rows.map(line).join("\n")}`);
+    console.log(`\n${line(header)}\n${rows.map((row) => line(row.cells, row.repos)).join("\n")}`);
     console.log("\nAhead/behind and branch counts compare each fork with its parent.");
   }
   if (related.length) {
     console.log("\nRelated repos:");
     for (const r of related) {
-      console.log(`  ${r.name}  ${r.stars}★  pushed ${age(r.pushedAt)}${r.archived ? " (archived)" : ""}  ${r.where}`);
+      console.log(
+        `  ${repoName(r.name, true)}  ${r.stars}★  pushed ${age(r.pushedAt)}${r.archived ? " (archived)" : ""}  ${r.where}`,
+      );
       if (r.quote) console.log(`      "${r.quote}"`);
     }
   }
-  console.log(`\n${verdict}`);
+  console.log(`\n${verdict(true)}`);
 }
 console.error(`(${restCalls} REST + ${graphqlCalls} GraphQL calls)`);
